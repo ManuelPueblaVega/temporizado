@@ -257,6 +257,10 @@
                         </label>
                     </div>
                 </div>
+                <div class="flex items-center gap-4 bg-[#101923] px-4 min-h-14 justify-between max-w-md mx-auto">
+                    <p class="text-white text-base font-normal leading-normal flex-1 truncate">Soporte de Vibración</p>
+                    <p id="vibration-status" class="text-[#90abcb] text-sm font-normal leading-normal"></p>
+                </div>
             </div>
             <div class="w-full">
                 <div class="flex gap-2 border-t border-[#223449] bg-[#182534] px-4 pb-3 pt-2 max-w-md mx-auto">
@@ -763,7 +767,7 @@
 
                 timerElement.innerHTML = `
                     <div class="flex items-center justify-between">
-                        <p class="text-white text-base font-medium leading-normal line-clamp-1">${timer.name} <span class="${statusColor} text-sm">${statusText}</span></p>
+                        <p class="text-white text-xl font-medium leading-normal line-clamp-1">${timer.name} <span class="${statusColor} text-sm">${statusText}</span></p>
                         <p class="text-[#90abcb] text-sm font-normal leading-normal"><span id="timer-countdown-${timer.id}">${formatTime(timer.remainingTime)}</span></p>
                     </div>
                     <div class="flex gap-2 justify-end mt-2">
@@ -867,10 +871,11 @@
 
             // Iniciar vibración si es compatible
             if (navigator.vibrate) {
-                // Patrón de vibración: vibrar 200ms, pausar 100ms, vibrar 200ms, pausar 100ms, etc.
-                // Una matriz vacía detiene la vibración
-                navigator.vibrate([200, 100, 200, 100, 200]); // Patrón de vibración simplificado
+                // Patrón de vibración más notorio: vibrar 500ms, pausar 200ms, repetir 3 veces
+                navigator.vibrate([500, 200, 500, 200, 500, 200, 500]); 
                 isVibrating = true;
+            } else {
+                console.warn("Vibration API no compatible con este dispositivo/navegador.");
             }
 
             // Iniciar alarma de sonido
@@ -878,7 +883,7 @@
             alarmInterval = setInterval(() => {
                 playSoundOnce(); // Repetir sonido
                 if (navigator.vibrate && isVibrating) {
-                    navigator.vibrate([200, 100, 200, 100, 200]); // Repetir vibración
+                    navigator.vibrate([500, 200, 500, 200, 500, 200, 500]); // Repetir vibración
                 }
             }, 3000); // Repetir cada 3 segundos
         }
@@ -913,6 +918,21 @@
             generatePickerNumbers(document.getElementById('hours-picker'), 23);
             generatePickerNumbers(document.getElementById('minutes-picker'), 59);
             generatePickerNumbers(document.getElementById('seconds-picker'), 59);
+
+            // Actualizar el estado de vibración en la configuración
+            const vibrationStatusElement = document.getElementById('vibration-status');
+            if (vibrationStatusElement) {
+                if ('vibrate' in navigator) {
+                    vibrationStatusElement.textContent = 'Compatible';
+                    vibrationStatusElement.classList.remove('text-red-400');
+                    vibrationStatusElement.classList.add('text-green-400');
+                } else {
+                    vibrationStatusElement.textContent = 'No compatible';
+                    vibrationStatusElement.classList.remove('text-green-400');
+                    vibrationStatusElement.classList.add('text-red-400');
+                }
+            }
+
 
             // Botones de navegación
             document.getElementById('start-button-main').addEventListener('click', () => {
