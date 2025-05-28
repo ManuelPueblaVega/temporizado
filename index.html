@@ -102,7 +102,6 @@
                         <span class="truncate">Ver Temporizadores</span>
                     </button>
                 </div>
-                <p id="user-id-display" class="text-[#90abcb] text-xs text-center mt-2"></p>
                 <div class="h-5 bg-[#101923]"></div>
             </div>
         </div>
@@ -293,22 +292,12 @@
     </div>
 
     <script type="module">
-        // Importaciones del SDK de Firebase
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Variables globales de Firebase
-        window.firebaseApp = null;
-        window.db = null;
-        window.auth = null;
-        window.currentUserId = null;
-        // Recuperar el ID de la aplicación del entorno, predeterminado si no está definido
-        window.appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // NO HAY IMPORTACIONES DE FIREBASE
 
         // Estado global para gestionar la página actual y los temporizadores
         let currentPage = 'main-timer-view';
-        let timers = []; // Array para almacenar objetos de temporizador de Firestore
+        let timers = []; // Array para almacenar objetos de temporizador
+        const LOCAL_STORAGE_KEY = 'kitchenTimers'; // Clave para LocalStorage
         let timerIntervals = {}; // Almacena los ID de los intervalos para cada temporizador en ejecución
         let selectedTimerId = null; // Rastrea qué temporizador se completó o se está viendo
         let activeMainTimerId = null; // Almacena el ID del temporizador que se muestra en la pantalla principal
@@ -459,113 +448,87 @@
         }
 
         /**
-         * Guarda o actualiza un objeto de temporizador en Firestore.
-         * @param {object} timer El objeto de temporizador a guardar.
+         * Guarda el array de temporizadores en LocalStorage.
          */
-        async function saveTimerToFirestore(timer) {
-            if (!window.db || !window.currentUserId) {
-                showMessageBox('Error: Firebase no inicializado o usuario no autenticado.', 'error');
-                return;
-            }
+        function saveTimersToLocalStorage() {
             try {
-                const timersCollectionRef = collection(window.db, `artifacts/${window.appId}/users/${window.currentUserId}/timers`);
-                if (timer.docId) { // Si el temporizador ya existe (tiene un docId de Firestore)
-                    const timerDocRef = doc(window.db, `artifacts/${window.appId}/users/${window.currentUserId}/timers`, timer.docId);
-                    await updateDoc(timerDocRef, {
-                        name: timer.name,
-                        duration: timer.duration,
-                        remainingTime: timer.remainingTime,
-                        status: timer.status,
-                        startTime: timer.startTime // Asegurarse de que startTime se guarde
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(timers));
+            } catch (e) {
+                console.error("Error al guardar temporizadores en LocalStorage: ", e);
+                showMessageBox('Error al guardar temporizadores.', 'error');
+            }
+        }
+
+        /**
+         * Carga el array de temporizadores de LocalStorage.
+         */
+        function loadTimersFromLocalStorage() {
+            try {
+                const storedTimers = localStorage.getItem(LOCAL_STORAGE_KEY);
+                if (storedTimers) {
+                    timers = JSON.parse(storedTimers);
+                    // Asegurarse de que los temporizadores pausados/completados se reinicien si es necesario al cargar
+                    timers.forEach(timer => {
+                        if (timer.status === 'running') {
+                            // Recalcular remainingTime si la app estuvo cerrada
+                            const elapsed = Math.floor((Date.now() - timer.startTime) / 1000);
+                            timer.remainingTime = timer.duration - elapsed;
+                            if (timer.remainingTime <= 0) {
+                                timer.remainingTime = 0;
+                                timer.status = 'completed';
+                            }
+                            // Reiniciar el intervalo si sigue corriendo
+                            startTimer(timer.id, false);
+                        } else if (timer.status === 'paused' || timer.status === 'completed') {
+                            // No hacer nada, se mantiene el estado
+                        } else {
+                            // Para 'idle', asegurar que remainingTime sea igual a duration
+                            timer.remainingTime = timer.duration;
+                            timer.status = 'idle';
+                        }
                     });
-                } else { // Nuevo temporizador
-                    const docRef = await addDoc(timersCollectionRef, {
-                        id: timer.id, // Mantener el ID generado por JS para uso interno
-                        name: timer.name,
-                        duration: timer.duration,
-                        remainingTime: timer.remainingTime,
-                        status: timer.status,
-                        startTime: timer.startTime || null, // Guardar startTime si está disponible
-                        userId: window.currentUserId
-                    });
-                    timer.docId = docRef.id; // Almacenar el ID del documento de Firestore
                 }
             } catch (e) {
-                console.error("Error al guardar el temporizador en Firestore: ", e);
-                showMessageBox('Error al guardar el temporizador.', 'error');
+                console.error("Error al cargar temporizadores de LocalStorage: ", e);
+                showMessageBox('Error al cargar temporizadores.', 'error');
             }
         }
 
         /**
-         * Elimina un temporizador de Firestore.
-         * @param {string} docId El ID del documento de Firestore del temporizador a eliminar.
+         * Guarda o actualiza un objeto de temporizador en el array y en LocalStorage.
+         * @param {object} timer El objeto de temporizador a guardar.
          */
-        async function deleteTimerFromFirestore(docId) {
-            if (!window.db || !window.currentUserId) {
-                showMessageBox('Error: Firebase no inicializado o usuario no autenticado.', 'error');
-                return;
+        async function saveTimer(timer) {
+            const index = timers.findIndex(t => t.id === timer.id);
+            if (index > -1) {
+                timers[index] = { ...timers[index], ...timer }; // Actualizar el temporizador existente
+            } else {
+                timers.push(timer); // Añadir nuevo temporizador
             }
-            try {
-                const timerDocRef = doc(window.db, `artifacts/${window.appId}/users/${window.currentUserId}/timers`, docId);
-                await deleteDoc(timerDocRef);
+            saveTimersToLocalStorage(); // Guardar todos los temporizadores en LocalStorage
+        }
+
+        /**
+         * Elimina un temporizador del array y de LocalStorage.
+         * @param {string} timerId El ID del temporizador a eliminar.
+         */
+        async function deleteTimerFromStorage(timerId) {
+            const index = timers.findIndex(t => t.id === timerId);
+            if (index > -1) {
+                clearInterval(timerIntervals[timerId]); // Limpiar intervalo si existe
+                delete timerIntervals[timerId];
+                timers.splice(index, 1);
+                saveTimersToLocalStorage();
                 showMessageBox('Temporizador eliminado.', 'success');
-            } catch (e) {
-                console.error("Error al eliminar el temporizador de Firestore: ", e);
-                showMessageBox('Error al eliminar el temporizador.', 'error');
             }
-        }
-
-        /**
-         * Carga los temporizadores de Firestore y configura un oyente en tiempo real.
-         */
-        function loadTimersFromFirestore() {
-            if (!window.db || !window.currentUserId) {
-                console.warn("Firestore no está listo para cargar temporizadores.");
-                return;
-            }
-
-            const timersCollectionRef = collection(window.db, `artifacts/${window.appId}/users/${window.currentUserId}/timers`);
-            // Usar onSnapshot para actualizaciones en tiempo real
-            onSnapshot(timersCollectionRef, (snapshot) => {
-                const newTimers = [];
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    newTimers.push({
-                        docId: doc.id, // Almacenar el ID del documento de Firestore
-                        id: data.id,
-                        name: data.name,
-                        duration: data.duration,
-                        remainingTime: data.remainingTime,
-                        status: data.status,
-                        startTime: data.startTime // Volver a añadir startTime si se reanuda
-                    });
-                });
-
-                // Limpiar todos los intervalos existentes antes de volver a renderizar y (potencialmente) reiniciar
-                Object.values(timerIntervals).forEach(intervalId => clearInterval(intervalId));
-                timerIntervals = {}; // Restablecer el objeto de intervalos
-
-                timers = newTimers;
-                // Reiniciar intervalos para los temporizadores en ejecución después de la carga
-                timers.forEach(timer => {
-                    if (timer.status === 'running') {
-                        startTimer(timer.id, false); // No guardar en Firestore de nuevo al cargar
-                    }
-                });
-                renderTimersList(); // Renderizar la lista después de cargar/actualizar los temporizadores
-                updateMainTimerDisplay(); // Actualizar la visualización del temporizador principal después de la carga
-            }, (error) => {
-                console.error("Error al escuchar los temporizadores de Firestore: ", error);
-                showMessageBox('Error al cargar los temporizadores.', 'error');
-            });
         }
 
         /**
          * Inicia un temporizador y actualiza su estado.
          * @param {string} timerId El ID del temporizador a iniciar.
-         * @param {boolean} saveToDb Si se debe guardar el estado del temporizador en Firestore inmediatamente.
+         * @param {boolean} saveToStorage Si se debe guardar el estado del temporizador en LocalStorage inmediatamente.
          */
-        async function startTimer(timerId, saveToDb = true) {
+        async function startTimer(timerId, saveToStorage = true) {
             const timer = timers.find(t => t.id === timerId);
             if (!timer || timer.status === 'running') return;
 
@@ -578,8 +541,8 @@
             // Ajustar la hora de inicio si se reanuda desde un estado pausado
             timer.startTime = Date.now() - (timer.duration - timer.remainingTime) * 1000;
             
-            if (saveToDb) {
-                await saveTimerToFirestore(timer);
+            if (saveToStorage) {
+                await saveTimer(timer);
             }
 
             // Limpiar cualquier intervalo existente para este temporizador antes de establecer uno nuevo
@@ -602,7 +565,7 @@
                     timer.status = 'completed';
                     timer.remainingTime = 0;
                     selectedTimerId = timer.id; // Establecer el temporizador completado como seleccionado
-                    await saveTimerToFirestore(timer); // Actualizar el estado en Firestore
+                    await saveTimer(timer); // Actualizar el estado en LocalStorage
                     showPage('timer-complete-view');
                     const timerCompleteMessageEl = document.getElementById('timer-complete-message');
                     if (timerCompleteMessageEl) timerCompleteMessageEl.textContent = `¡Tu temporizador para "${timer.name}" ha terminado!`;
@@ -617,8 +580,6 @@
                         if (activeTimerNameEl) activeTimerNameEl.textContent = timer.name;
                         if (activeTimerTimeEl) activeTimerTimeEl.textContent = formatTime(timer.remainingTime);
                     }
-                    // No es necesario llamar a renderTimersList() cada segundo aquí,
-                    // ya que el span individual se actualiza directamente.
                 }
             }, 1000);
             activeMainTimerId = timer.id; // Establecer este temporizador como el que se mostrará en la pantalla principal
@@ -636,7 +597,7 @@
                 clearInterval(timerIntervals[timer.id]);
                 delete timerIntervals[timer.id]; // Eliminar intervalo de la lista
                 timer.status = 'paused';
-                await saveTimerToFirestore(timer); // Actualizar el estado en Firestore
+                await saveTimer(timer); // Actualizar el estado en LocalStorage
                 renderTimersList(); // Re-renderizar la lista para actualizar los botones y el estado
                 updateMainTimerDisplay(); // Actualizar la visualización del temporizador principal
             }
@@ -653,7 +614,8 @@
                 delete timerIntervals[timer.id]; // Eliminar intervalo de la lista
                 timer.remainingTime = timer.duration;
                 timer.status = 'idle';
-                await saveTimerToFirestore(timer); // Actualizar el estado en Firestore
+                timer.startTime = null; // Reiniciar startTime
+                await saveTimer(timer); // Actualizar el estado en LocalStorage
                 renderTimersList(); // Re-renderizar la lista para actualizar los botones y el estado
                 updateMainTimerDisplay(); // Actualizar la visualización del temporizador principal
                 if (activeMainTimerId === timer.id) {
@@ -664,7 +626,7 @@
         }
 
         /**
-         * Elimina un temporizador de la matriz local y de Firestore.
+         * Elimina un temporizador de la matriz local y de LocalStorage.
          * @param {string} timerId El ID del temporizador a eliminar.
          */
         async function deleteTimer(timerId) {
@@ -674,14 +636,11 @@
                 clearInterval(timerIntervals[timerToDelete.id]); // Limpiar intervalo si existe
                 delete timerIntervals[timerToDelete.id];
 
-                if (timerToDelete.docId) {
-                    await deleteTimerFromFirestore(timerToDelete.docId);
-                } else {
-                    // Si no hay docId (ej. Firebase no inicializado), simplemente eliminar de la matriz local
-                    timers.splice(timerIndex, 1);
-                    renderTimersList();
-                    updateMainTimerDisplay();
-                }
+                timers.splice(timerIndex, 1);
+                saveTimersToLocalStorage(); // Guardar después de eliminar
+                renderTimersList();
+                updateMainTimerDisplay();
+                showMessageBox('Temporizador eliminado.', 'success'); // Mensaje de éxito
 
                 if (activeMainTimerId === timerId) {
                     activeMainTimerId = null; // Borrar si el temporizador eliminado era el principal
@@ -945,44 +904,10 @@
 
         // --- Oyentes de Eventos ---
         document.addEventListener('DOMContentLoaded', () => {
-            // Inicializar Firebase
-            try {
-                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-                
-                // Verificar si firebaseConfig está vacío o no es un objeto válido
-                if (Object.keys(firebaseConfig).length === 0) {
-                    console.error("Firebase: La configuración de Firebase está vacía o no se ha proporcionado correctamente. Asegúrate de que la variable __firebase_config esté definida.");
-                    showMessageBox('No se pudo inicializar Firebase: Configuración faltante. Consulta la consola.', 'error');
-                    return; // Detener la inicialización de Firebase si la configuración es incorrecta
-                }
-
-                window.firebaseApp = initializeApp(firebaseConfig);
-                window.db = getFirestore(window.firebaseApp);
-                window.auth = getAuth(window.firebaseApp);
-
-                onAuthStateChanged(window.auth, async (user) => {
-                    if (user) {
-                        window.currentUserId = user.uid;
-                        document.getElementById('user-id-display').textContent = `ID de Usuario: ${window.currentUserId}`;
-                        loadTimersFromFirestore(); // Cargar temporizadores una vez autenticado
-                    } else {
-                        // Iniciar sesión de forma anónima si no hay ningún usuario conectado
-                        try {
-                            if (typeof __initial_auth_token !== 'undefined') {
-                                await signInWithCustomToken(window.auth, __initial_auth_token);
-                            } else {
-                                await signInAnonymously(window.auth);
-                            }
-                        } catch (error) {
-                            console.error("Error al iniciar sesión de forma anónima:", error);
-                            showMessageBox('Error al iniciar sesión.', 'error');
-                        }
-                    }
-                });
-            } catch (error) {
-                console.error("No se pudo inicializar Firebase:", error);
-                showMessageBox('No se pudo inicializar Firebase. Consulta la consola para más detalles.', 'error');
-            }
+            // Cargar temporizadores de LocalStorage al inicio
+            loadTimersFromLocalStorage();
+            // Actualizar la visualización del temporizador principal
+            updateMainTimerDisplay();
 
             // Rellenar selectores de duración
             generatePickerNumbers(document.getElementById('hours-picker'), 23);
@@ -1020,7 +945,6 @@
                 showPage('settings-view');
             });
 
-            // FIX: Added 'click' event type to addEventListener
             document.getElementById('settings-close-button').addEventListener('click', () => {
                 showPage('main-timer-view');
             });
@@ -1081,8 +1005,8 @@
                     startTime: null // Para rastrear cuándo comenzó para un cálculo preciso del tiempo restante
                 };
 
-                timers.push(newTimer);
-                await saveTimerToFirestore(newTimer); // Guardar nuevo temporizador en Firestore
+                // No necesitamos `await` aquí porque `saveTimer` ya maneja la persistencia de forma síncrona con LocalStorage
+                saveTimer(newTimer);
                 showMessageBox('¡Temporizador guardado con éxito!', 'success');
                 showPage('timers-list-view'); // Volver a la lista de temporizadores
             });
