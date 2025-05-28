@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+    <link
+        rel="stylesheet"
+        as="style"
+        onload="this.rel='stylesheet'"
+        href="https://fonts.googleapis.com/css2?display=swap&amp;family=Be+Vietnam+Pro%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900"
+    />
+    <title>Temporizador de Cocina</title>
+    <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64," />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <style>
+        /* Estilos personalizados para los selectores de duración para permitir el desplazamiento */
+        .duration-picker {
+            overflow-y: scroll;
+            height: 132px; /* 3 veces 44px (h-11) */
+            scroll-snap-type: y mandatory;
+            -webkit-overflow-scrolling: touch; /* Para un desplazamiento más suave en iOS */
+        }
+        .duration-picker::-webkit-scrollbar {
+            display: none; /* Ocultar la barra de desplazamiento para una apariencia más limpia */
+        }
+        .duration-picker > p {
+            scroll-snap-align: center;
+            height: 44px; /* Coincide con h-11 en Tailwind */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.1s ease-in-out, color 0.1s ease-in-out;
+        }
+        /* Estilo para el número activo/seleccionado en el selector */
+        .duration-picker .active-number {
+            background-color: #223449;
+            color: white;
+            border-radius: 9999px; /* rounded-full */
+        }
+        /* Efecto de transición de página */
+        .page {
+            transition: opacity 0.3s ease-in-out;
+        }
+        .page.hidden {
+            opacity: 0;
+            pointer-events: none;
+            position: absolute; /* Ocultar completamente cuando está oculto */
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+        }
+        /* Cuadro de mensaje para comentarios del usuario */
+        .message-box {
+            animation: fadeInOut 3s forwards;
+        }
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(20px); }
+            10% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(20px); }
+        }
+    </style>
+</head>
+<body class="bg-[#101923]">
+    <div
+        class="relative flex size-full min-h-screen flex-col bg-[#101923] dark justify-between group/design-root overflow-x-hidden"
+        style='--checkbox-tick-svg: url(&apos;data:image/svg+xml,%3csvg viewBox=%270 0 16 16%27 fill=%27rgb(255,255,255)%27 xmlns=%27http://www.w3.org/2000/svg%27%3e%3cpath d=%27M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z%27/%3e%3c/svg%3e&apos;); font-family: "Be Vietnam Pro", "Noto Sans", sans-serif;'
+    >
+        <div id="main-timer-view" class="page flex flex-col justify-between items-center text-center">
+            <div class="w-full">
+                <div class="flex items-center bg-[#101923] p-4 pb-2 justify-between">
+                    <h2 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pl-12">¡A cocinar! 🍳</h2>
+                    <div class="flex w-12 items-center justify-end">
+                        <button id="settings-button-main"
+                            class="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 bg-transparent text-white gap-2 text-base font-bold leading-normal tracking-[0.015em] min-w-0 p-0"
+                        >
+                            <div class="text-white" data-icon="Gear" data-size="24px" data-weight="regular">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                                    <path
+                                        d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm88-29.84q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.21,107.21,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.71,107.71,0,0,0-26.25-10.87,8,8,0,0,0-7.06,1.49L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.21,107.21,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06Zm-16.1-6.5a73.93,73.93,0,0,1,0,8.68,8,8,0,0,0,1.74,5.48l14.19,17.73a91.57,91.57,0,0,1-6.23,15L187,173.11a8,8,0,0,0-5.1,2.64,74.11,74.11,0,0,1-6.14,6.14,8,8,0,0,0-2.64,5.1l-2.51,22.58a91.32,91.32,0,0,1-15,6.23l-17.74-14.19a8,8,0,0,0-5-1.75h-.48a73.93,73.93,0,0,1-8.68,0,8,8,0,0,0-5.48,1.74L100.45,215.8a91.57,91.57,0,0,1-15-6.23L82.89,187a8,8,0,0,0-2.64-5.1,74.11,74.11,0,0,1-6.14-6.14,8,8,0,0,0-5.1-2.64L46.43,170.6a91.32,91.32,0,0,1-6.23-15l14.19-17.74a8,8,0,0,0,1.74-5.48,73.93,73.93,0,0,1,0-8.68,8,8,0,0,0-1.74-5.48L40.2,100.45a91.57,91.57,0,0,1,6.23-15L69,82.89a8,8,0,0,0,5.1-2.64,74.11,74.11,0,0,1,6.14-6.14A8,8,0,0,0,82.89,69L85.4,46.43a91.32,91.32,0,0,1,15-6.23l17.74,14.19a8,8,0,0,0,5.48,1.74,73.93,73.93,0,0,1,8.68,0,8,8,0,0,0,5.48-1.74L155.55,40.2a91.57,91.57,0,0,1,15,6.23L173.11,69a8,8,0,0,0,2.64,5.1,74.11,74.11,0,0,1,6.14,6.14,8,8,0,0,0,5.1,2.64l22.58,2.51a91.32,91.32,0,0,1,6.23,15l-14.19,17.74A8,8,0,0,0,199.87,123.66Z"
+                                    ></path>
+                                </svg>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+                <h1 id="main-timer-title" class="text-white tracking-light text-[32px] font-bold leading-tight px-4 text-center pb-3 pt-6">Temporizador de Cocina</h1>
+                <p id="main-timer-subtitle" class="text-white text-base font-normal leading-normal pb-3 pt-1 px-4 text-center">Gestiona tus tiempos de cocción fácilmente.</p>
+                <div id="active-timer-display" class="hidden mt-4">
+                    <p class="text-[#90abcb] text-sm font-normal leading-normal">Temporizador Activo:</p>
+                    <p id="active-timer-name" class="text-white text-2xl font-bold leading-tight"></p>
+                    <p id="active-timer-time" class="text-white text-6xl font-bold leading-tight mt-2"></p>
+                </div>
+            </div>
+            <div class="w-full">
+                <div class="flex px-4 py-3">
+                    <button id="start-button-main"
+                        class="flex min-w-[84px] max-w-[480px] w-full mx-auto cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-5 flex-1 bg-[#0c77f2] text-white text-base font-bold leading-normal tracking-[0.015em]"
+                    >
+                        <span class="truncate">Ver Temporizadores</span>
+                    </button>
+                </div>
+                <p id="user-id-display" class="text-[#90abcb] text-xs text-center mt-2"></p>
+                <div class="h-5 bg-[#101923]"></div>
+            </div>
+        </div>
+
+        <div id="new-timer-view" class="page hidden flex flex-col justify-between items-center text-center">
+            <div class="w-full">
+                <div class="flex items-center bg-[#101923] p-4 pb-2 justify-between">
+                    <button id="new-timer-close-button" class="text-white flex size-12 shrink-0 items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                            <path
+                                d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"
+                            ></path>
+                        </svg>
+                    </button>
+                    <h2 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Nuevo Temporizador</h2>
+                </div>
+                <h3 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4 text-center">Duración</h3>
+                <div class="flex px-4 py-1 max-w-md mx-auto">
+                    <div class="group flex-1 duration-picker" id="hours-picker">
+                        </div>
+                    <div class="group flex-1 duration-picker" id="minutes-picker">
+                        </div>
+                    <div class="group flex-1 duration-picker" id="seconds-picker">
+                        </div>
+                </div>
+                <h3 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4 text-center">Nombre</h3>
+                <div class="flex max-w-[480px] mx-auto flex-wrap items-end gap-4 px-4 py-3">
+                    <label class="flex flex-col min-w-40 flex-1">
+                        <input
+                            id="timer-name-input"
+                            placeholder="Nombre del Temporizador"
+                            class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-white focus:outline-0 focus:ring-0 border-none bg-[#223449] focus:border-none h-14 placeholder:text-[#90abcb] p-4 text-base font-normal leading-normal"
+                            value=""
+                        />
+                    </label>
+                </div>
+            </div>
+            <div class="w-full">
+                <div class="flex justify-stretch max-w-[480px] mx-auto">
+                    <div class="flex flex-1 gap-3 flex-wrap px-4 py-3 justify-between">
+                        <button id="new-timer-cancel-button"
+                            class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#223449] text-white text-sm font-bold leading-normal tracking-[0.015em]"
+                        >
+                            <span class="truncate">Cancelar</span>
+                        </button>
+                        <button id="new-timer-save-button"
+                            class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#0c77f2] text-white text-sm font-bold leading-normal tracking-[0.015em]"
+                        >
+                            <span class="truncate">Guardar</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="h-5 bg-[#101923]"></div>
+            </div>
+        </div>
+
+        <div id="timers-list-view" class="page hidden flex flex-col justify-between items-center text-center">
+            <div class="w-full">
+                <div class="flex items-center bg-[#101923] p-4 pb-2 justify-between">
+                    <button id="timers-list-back-button" class="text-white flex size-12 shrink-0 items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                            <path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"></path>
+                        </svg>
+                    </button>
+                    <h2 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Mis Temporizadores</h2>
+                </div>
+                <div id="timers-container" class="max-w-md mx-auto">
+                    </div>
+            </div>
+            <div class="w-full">
+                <div class="flex justify-end overflow-hidden px-5 pb-5 max-w-md mx-auto">
+                    <button id="new-timer-list-button"
+                        class="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-14 px-5 bg-[#0c77f2] text-white text-base font-bold leading-normal tracking-[0.015em] min-w-0 gap-4 pl-4 pr-6"
+                    >
+                        <div class="text-white" data-icon="Plus" data-size="24px" data-weight="regular">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                                <path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"></path>
+                            </svg>
+                        </div>
+                        <span class="truncate">Nuevo Temporizador</span>
+                    </button>
+                </div>
+                <div class="h-5 bg-[#101923]"></div>
+            </div>
+        </div>
+
+        <div id="timer-complete-view" class="page hidden flex flex-col justify-between items-center text-center">
+            <div class="w-full">
+                <div class="flex items-center bg-[#101923] p-4 pb-2 justify-between">
+                    <button id="timer-complete-close-button" class="text-white flex size-12 shrink-0 items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                            <path
+                                d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"
+                            ></path>
+                        </svg>
+                    </button>
+                    <h2 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Temporizador</h2>
+                </div>
+                <h1 class="text-white text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 text-center pb-3 pt-5">¡Temporizador Completado!</h1>
+                <p id="timer-complete-message" class="text-white text-base font-normal leading-normal pb-3 pt-1 px-4 text-center">Tu temporizador ha terminado.</p>
+            </div>
+            <div class="w-full">
+                <div class="flex px-4 py-3 max-w-[480px] mx-auto">
+                    <button id="timer-complete-stop-button"
+                        class="flex min-w-[84px] max-w-[480px] w-full cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-5 flex-1 bg-[#0c77f2] text-white text-base font-bold leading-normal tracking-[0.015em]"
+                    >
+                        <span class="truncate">Detener Alarma</span>
+                    </button>
+                </div>
+                <div class="flex px-4 py-3 max-w-[480px] mx-auto">
+                    <button id="timer-complete-view-details-button"
+                        class="flex min-w-[84px] max-w-[480px] w-full cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-5 flex-1 bg-[#223449] text-white text-base font-normal leading-normal tracking-[0.015em]"
+                    >
+                        <span class="truncate">Ver Detalles</span>
+                    </button>
+                </div>
+                <div class="h-5 bg-[#101923]"></div>
+            </div>
+        </div>
+
+        <div id="settings-view" class="page hidden flex flex-col justify-between items-center text-center">
+            <div class="w-full">
+                <div class="flex items-center bg-[#101923] p-4 pb-2 justify-between">
+                    <button id="settings-close-button" class="text-white flex size-12 shrink-0 items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                            <path
+                                d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"
+                            ></path>
+                        </svg>
+                    </button>
+                    <h2 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Configuración</h2>
+                </div>
+                <h3 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4 text-center">Sonido de Alerta</h3>
+                <div class="flex items-center gap-4 bg-[#101923] px-4 min-h-14 justify-between max-w-md mx-auto">
+                    <p class="text-white text-base font-normal leading-normal flex-1 truncate">Predeterminado</p>
+                    <div class="shrink-0">
+                        <label
+                            class="relative flex h-[31px] w-[51px] cursor-pointer items-center rounded-full border-none bg-[#223449] p-0.5 has-[:checked]:justify-end has-[:checked]:bg-[#0c77f2]"
+                        >
+                            <div class="h-full w-[27px] rounded-full bg-white" style="box-shadow: rgba(0, 0, 0, 0.15) 0px 3px 8px, rgba(0, 0, 0, 0.06) 0px 3px 1px;"></div>
+                            <input type="checkbox" class="invisible absolute" id="default-sound-toggle" checked />
+                        </label>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4 bg-[#101923] px-4 min-h-14 justify-between max-w-md mx-auto">
+                    <p class="text-white text-base font-normal leading-normal flex-1 truncate">Ding</p>
+                    <div class="shrink-0">
+                        <label
+                            class="relative flex h-[31px] w-[51px] cursor-pointer items-center rounded-full border-none bg-[#223449] p-0.5 has-[:checked]:justify-end has-[:checked]:bg-[#0c77f2]"
+                        >
+                            <div class="h-full w-[27px] rounded-full bg-white" style="box-shadow: rgba(0, 0, 0, 0.15) 0px 3px 8px, rgba(0, 0, 0, 0.06) 0px 3px 1px;"></div>
+                            <input type="checkbox" class="invisible absolute" id="ding-sound-toggle" />
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="w-full">
+                <div class="flex gap-2 border-t border-[#223449] bg-[#182534] px-4 pb-3 pt-2 max-w-md mx-auto">
+                    <a id="nav-clock-settings" class="just flex flex-1 flex-col items-center justify-end gap-1 text-[#90abcb]" href="#">
+                        <div class="text-[#90abcb] flex h-8 items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                                <path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm56,112H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48a8,8,0,0,1,0,16Z"></path>
+                            </svg>
+                        </div>
+                    </a>
+                    <a id="nav-timer-settings" class="just flex flex-1 flex-col items-center justify-end gap-1 text-[#90abcb]" href="#">
+                        <div class="text-[#90abcb] flex h-8 items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                                <path
+                                    d="M128,40a96,96,0,1,0,96,96A96.11,96.11,0,0,0,128,40Zm0,176a80,80,0,1,1,80-80A80.09,80.09,0,0,1,128,216ZM173.66,90.34a8,8,0,0,1,0,11.32l-40,40a8,8,0,0,1-11.32-11.32l40-40A8,8,0,0,1,173.66,90.34ZM96,16a8,8,0,0,1,8-8h48a8,8,0,0,1,0,16H104A8,8,0,0,1,96,16Z"
+                                ></path>
+                            </svg>
+                        </div>
+                    </a>
+                    <a id="nav-gear-settings" class="just flex flex-1 flex-col items-center justify-end gap-1 text-white" href="#">
+                        <div class="text-white flex h-8 items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                                <path
+                                    d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm88-29.84q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.21,107.21,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.71,107.71,0,0,0-26.25-10.87,8,8,0,0,0-7.06,1.49L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.21,107.21,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06Zm-16.1-6.5a73.93,73.93,0,0,1,0,8.68,8,8,0,0,0,1.74,5.48l14.19,17.73a91.57,91.57,0,0,1-6.23,15L187,173.11a8,8,0,0,0-5.1,2.64,74.11,74.11,0,0,1-6.14,6.14,8,8,0,0,0-2.64,5.1l-2.51,22.58a91.32,91.32,0,0,1-15,6.23l-17.74-14.19a8,8,0,0,0-5-1.75h-.48a73.93,73.93,0,0,1-8.68,0,8,8,0,0,0-5.48,1.74L100.45,215.8a91.57,91.57,0,0,1-15-6.23L82.89,187a8,8,0,0,0-2.64-5.1,74.11,74.11,0,0,1-6.14-6.14,8,8,0,0,0-5.1-2.64L46.43,170.6a91.32,91.32,0,0,1-6.23-15l14.19-17.74a8,8,0,0,0,1.74-5.48,73.93,73.93,0,0,1,0-8.68,8,8,0,0,0-1.74-5.48L40.2,100.45a91.57,91.57,0,0,1,6.23-15L69,82.89a8,8,0,0,0,5.1-2.64,74.11,74.11,0,0,1,6.14-6.14A8,8,0,0,0,82.89,69L85.4,46.43a91.32,91.32,0,0,1,15-6.23l17.74,14.19a8,8,0,0,0,5.48,1.74,73.93,73.93,0,0,1,8.68,0,8,8,0,0,0,5.48-1.74L155.55,40.2a91.57,91.57,0,0,1,15,6.23L173.11,69a8,8,0,0,0,2.64,5.1,74.11,74.11,0,0,1,6.14,6.14,8,8,0,0,0,5.1,2.64l22.58,2.51a91.32,91.32,0,0,1,6.23,15l-14.19,17.74A8,8,0,0,0,199.87,123.66Z"
+                                    ></path>
+                                </svg>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+                <h1 id="main-timer-title" class="text-white tracking-light text-[32px] font-bold leading-tight px-4 text-center pb-3 pt-6">Temporizador de Cocina</h1>
+                <p id="main-timer-subtitle" class="text-white text-base font-normal leading-normal pb-3 pt-1 px-4 text-center">Gestiona tus tiempos de cocción fácilmente.</p>
+                <div id="active-timer-display" class="hidden mt-4">
+                    <p class="text-[#90abcb] text-sm font-normal leading-normal">Temporizador Activo:</p>
+                    <p id="active-timer-name" class="text-white text-2xl font-bold leading-tight"></p>
+                    <p id="active-timer-time" class="text-white text-6xl font-bold leading-tight mt-2"></p>
+                </div>
+            </div>
+            <div class="w-full">
+                <div class="flex px-4 py-3">
+                    <button id="start-button-main"
+                        class="flex min-w-[84px] max-w-[480px] w-full mx-auto cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-5 flex-1 bg-[#0c77f2] text-white text-base font-bold leading-normal tracking-[0.015em]"
+                    >
+                        <span class="truncate">Ver Temporizadores</span>
+                    </button>
+                </div>
+                <p id="user-id-display" class="text-[#90abcb] text-xs text-center mt-2"></p>
+                <div class="h-5 bg-[#101923]"></div>
+            </div>
+        </div>
+
+        <div id="new-timer-view" class="page hidden flex flex-col justify-between items-center text-center">
+            <div class="w-full">
+                <div class="flex items-center bg-[#101923] p-4 pb-2 justify-between">
+                    <button id="new-timer-close-button" class="text-white flex size-12 shrink-0 items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                            <path
+                                d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"
+                            ></path>
+                        </svg>
+                    </button>
+                    <h2 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Nuevo Temporizador</h2>
+                </div>
+                <h3 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4 text-center">Duración</h3>
+                <div class="flex px-4 py-1 max-w-md mx-auto">
+                    <div class="group flex-1 duration-picker" id="hours-picker">
+                        </div>
+                    <div class="group flex-1 duration-picker" id="minutes-picker">
+                        </div>
+                    <div class="group flex-1 duration-picker" id="seconds-picker">
+                        </div>
+                </div>
+                <h3 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4 text-center">Nombre</h3>
+                <div class="flex max-w-[480px] mx-auto flex-wrap items-end gap-4 px-4 py-3">
+                    <label class="flex flex-col min-w-40 flex-1">
+                        <input
+                            id="timer-name-input"
+                            placeholder="Nombre del Temporizador"
+                            class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-white focus:outline-0 focus:ring-0 border-none bg-[#223449] focus:border-none h-14 placeholder:text-[#90abcb] p-4 text-base font-normal leading-normal"
+                            value=""
+                        />
+                    </label>
+                </div>
+            </div>
+            <div class="w-full">
+                <div class="flex justify-stretch max-w-[480px] mx-auto">
+                    <div class="flex flex-1 gap-3 flex-wrap px-4 py-3 justify-between">
+                        <button id="new-timer-cancel-button"
+                            class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#223449] text-white text-sm font-bold leading-normal tracking-[0.015em]"
+                        >
+                            <span class="truncate">Cancelar</span>
+                        </button>
+                        <button id="new-timer-save-button"
+                            class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#0c77f2] text-white text-sm font-bold leading-normal tracking-[0.015em]"
+                        >
+                            <span class="truncate">Guardar</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="h-5 bg-[#101923]"></div>
+            </div>
+        </div>
+
+        <div id="timers-list-view" class="page hidden flex flex-col justify-between items-center text-center">
+            <div class="w-full">
+                <div class="flex items-center bg-[#101923] p-4 pb-2 justify-between">
+                    <button id="timers-list-back-button" class="text-white flex size-12 shrink-0 items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                            <path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"></path>
+                        </svg>
+                    </button>
+                    <h2 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Mis Temporizadores</h2>
+                </div>
+                <div id="timers-container" class="max-w-md mx-auto">
+                    </div>
+            </div>
+            <div class="w-full">
+                <div class="flex justify-end overflow-hidden px-5 pb-5 max-w-md mx-auto">
+                    <button id="new-timer-list-button"
+                        class="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-14 px-5 bg-[#0c77f2] text-white text-base font-bold leading-normal tracking-[0.015em] min-w-0 gap-4 pl-4 pr-6"
+                    >
+                        <div class="text-white" data-icon="Plus" data-size="24px" data-weight="regular">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                                <path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"></path>
+                            </svg>
+                        </div>
+                        <span class="truncate">Nuevo Temporizador</span>
+                    </button>
+                </div>
+                <div class="h-5 bg-[#101923]"></div>
+            </div>
+        </div>
+
+        <div id="timer-complete-view" class="page hidden flex flex-col justify-between items-center text-center">
+            <div class="w-full">
+                <div class="flex items-center bg-[#101923] p-4 pb-2 justify-between">
+                    <button id="timer-complete-close-button" class="text-white flex size-12 shrink-0 items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                            <path
+                                d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"
+                            ></path>
+                        </svg>
+                    </button>
+                    <h2 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Temporizador</h2>
+                </div>
+                <h1 class="text-white text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 text-center pb-3 pt-5">¡Temporizador Completado!</h1>
+                <p id="timer-complete-message" class="text-white text-base font-normal leading-normal pb-3 pt-1 px-4 text-center">Tu temporizador ha terminado.</p>
+            </div>
+            <div class="w-full">
+                <div class="flex px-4 py-3 max-w-[480px] mx-auto">
+                    <button id="timer-complete-stop-button"
+                        class="flex min-w-[84px] max-w-[480px] w-full cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-5 flex-1 bg-[#0c77f2] text-white text-base font-bold leading-normal tracking-[0.015em]"
+                    >
+                        <span class="truncate">Detener Alarma</span>
+                    </button>
+                </div>
+                <div class="flex px-4 py-3 max-w-[480px] mx-auto">
+                    <button id="timer-complete-view-details-button"
+                        class="flex min-w-[84px] max-w-[480px] w-full cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-5 flex-1 bg-[#223449] text-white text-base font-normal leading-normal tracking-[0.015em]"
+                    >
+                        <span class="truncate">Ver Detalles</span>
+                    </button>
+                </div>
+                <div class="h-5 bg-[#101923]"></div>
+            </div>
+        </div>
+
+        <div id="settings-view" class="page hidden flex flex-col justify-between items-center text-center">
+            <div class="w-full">
+                <div class="flex items-center bg-[#101923] p-4 pb-2 justify-between">
+                    <button id="settings-close-button" class="text-white flex size-12 shrink-0 items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                            <path
+                                d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"
+                            ></path>
+                        </svg>
+                    </button>
+                    <h2 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Configuración</h2>
+                </div>
+                <h3 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4 text-center">Sonido de Alerta</h3>
+                <div class="flex items-center gap-4 bg-[#101923] px-4 min-h-14 justify-between max-w-md mx-auto">
+                    <p class="text-white text-base font-normal leading-normal flex-1 truncate">Predeterminado</p>
+                    <div class="shrink-0">
+                        <label
+                            class="relative flex h-[31px] w-[51px] cursor-pointer items-center rounded-full border-none bg-[#223449] p-0.5 has-[:checked]:justify-end has-[:checked]:bg-[#0c77f2]"
+                        >
+                            <div class="h-full w-[27px] rounded-full bg-white" style="box-shadow: rgba(0, 0, 0, 0.15) 0px 3px 8px, rgba(0, 0, 0, 0.06) 0px 3px 1px;"></div>
+                            <input type="checkbox" class="invisible absolute" id="default-sound-toggle" checked />
+                        </label>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4 bg-[#101923] px-4 min-h-14 justify-between max-w-md mx-auto">
+                    <p class="text-white text-base font-normal leading-normal flex-1 truncate">Ding</p>
+                    <div class="shrink-0">
+                        <label
+                            class="relative flex h-[31px] w-[51px] cursor-pointer items-center rounded-full border-none bg-[#223449] p-0.5 has-[:checked]:justify-end has-[:checked]:bg-[#0c77f2]"
+                        >
+                            <div class="h-full w-[27px] rounded-full bg-white" style="box-shadow: rgba(0, 0, 0, 0.15) 0px 3px 8px, rgba(0, 0, 0, 0.06) 0px 3px 1px;"></div>
+                            <input type="checkbox" class="invisible absolute" id="ding-sound-toggle" />
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="w-full">
+                <div class="flex gap-2 border-t border-[#223449] bg-[#182534] px-4 pb-3 pt-2 max-w-md mx-auto">
+                    <a id="nav-clock-settings" class="just flex flex-1 flex-col items-center justify-end gap-1 text-[#90abcb]" href="#">
+                        <div class="text-[#90abcb] flex h-8 items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                                <path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm56,112H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48a8,8,0,0,1,0,16Z"></path>
+                            </svg>
+                        </div>
+                    </a>
+                    <a id="nav-timer-settings" class="just flex flex-1 flex-col items-center justify-end gap-1 text-[#90abcb]" href="#">
+                        <div class="text-[#90abcb] flex h-8 items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                                <path
+                                    d="M128,40a96,96,0,1,0,96,96A96.11,96.11,0,0,0,128,40Zm0,176a80,80,0,1,1,80-80A80.09,80.09,0,0,1,128,216ZM173.66,90.34a8,8,0,0,1,0,11.32l-40,40a8,8,0,0,1-11.32-11.32l40-40A8,8,0,0,1,173.66,90.34ZM96,16a8,8,0,0,1,8-8h48a8,8,0,0,1,0,16H104A8,8,0,0,1,96,16Z"
+                                ></path>
+                            </svg>
+                        </div>
+                    </a>
+                    <a id="nav-gear-settings" class="just flex flex-1 flex-col items-center justify-end gap-1 text-white" href="#">
+                        <div class="text-white flex h-8 items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                                <path
+                                    d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm88-29.84q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.21,107.21,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.71,107.71,0,0,0-26.25-10.87,8,8,0,0,0-7.06,1.49L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.21,107.21,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06Zm-16.1-6.5a73.93,73.93,0,0,1,0,8.68,8,8,0,0,0,1.74,5.48l14.19,17.73a91.57,91.57,0,0,1-6.23,15L187,173.11a8,8,0,0,0-5.1,2.64,74.11,74.11,0,0,1-6.14,6.14,8,8,0,0,0-2.64,5.1l-2.51,22.58a91.32,91.32,0,0,1-15,6.23l-17.74-14.19a8,8,0,0,0-5-1.75h-.48a73.93,73.93,0,0,1-8.68,0,8,8,0,0,0-5.48,1.74L100.45,215.8a91.57,91.57,0,0,1-15-6.23L82.89,187a8,8,0,0,0-2.64-5.1,74.11,74.11,0,0,1-6.14-6.14,8,8,0,0,0-5.1-2.64L46.43,170.6a91.32,91.32,0,0,1-6.23-15l14.19-17.74a8,8,0,0,0,1.74-5.48,73.93,73.93,0,0,1,0-8.68,8,8,0,0,0-1.74-5.48L40.2,100.45a91.57,91.57,0,0,1,6.23-15L69,82.89a8,8,0,0,0,5.1-2.64,74.11,74.11,0,0,1,6.14-6.14A8,8,0,0,0,82.89,69L85.4,46.43a91.32,91.32,0,0,1,15-6.23l17.74,14.19a8,8,0,0,0,5.48,1.74,73.93,73.93,0,0,1,8.68,0,8,8,0,0,0,5.48-1.74L155.55,40.2a91.57,91.57,0,0,1,15,6.23L173.11,69a8,8,0,0,0,2.64,5.1,74.11,74.11,0,0,1,6.14,6.14,8,8,0,0,0,5.1,2.64l22.58,2.51a91.32,91.32,0,0,1,6.23,15l-14.19,17.74A8,8,0,0,0,199.87,123.66Z"
+                                    ></path>
+                                </svg>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+                <h3 class="text-white text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4 text-center">Sonido de Alerta</h3>
+                <div class="flex items-center gap-4 bg-[#101923] px-4 min-h-14 justify-between max-w-md mx-auto">
+                    <p class="text-white text-base font-normal leading-normal flex-1 truncate">Predeterminado</p>
+                    <div class="shrink-0">
+                        <label
+                            class="relative flex h-[31px] w-[51px] cursor-pointer items-center rounded-full border-none bg-[#223449] p-0.5 has-[:checked]:justify-end has-[:checked]:bg-[#0c77f2]"
+                        >
+                            <div class="h-full w-[27px] rounded-full bg-white" style="box-shadow: rgba(0, 0, 0, 0.15) 0px 3px 8px, rgba(0, 0, 0, 0.06) 0px 3px 1px;"></div>
+                            <input type="checkbox" class="invisible absolute" id="default-sound-toggle" checked />
+                        </label>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4 bg-[#101923] px-4 min-h-14 justify-between max-w-md mx-auto">
+                    <p class="text-white text-base font-normal leading-normal flex-1 truncate">Ding</p>
+                    <div class="shrink-0">
+                        <label
+                            class="relative flex h-[31px] w-[51px] cursor-pointer items-center rounded-full border-none bg-[#223449] p-0.5 has-[:checked]:justify-end has-[:checked]:bg-[#0c77f2]"
+                        >
+                            <div class="h-full w-[27px] rounded-full bg-white" style="box-shadow: rgba(0, 0, 0, 0.15) 0px 3px 8px, rgba(0, 0, 0, 0.06) 0px 3px 1px;"></div>
+                            <input type="checkbox" class="invisible absolute" id="ding-sound-toggle" />
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="w-full">
+                <div class="flex gap-2 border-t border-[#223449] bg-[#182534] px-4 pb-3 pt-2 max-w-md mx-auto">
+                    <a id="nav-clock-settings" class="just flex flex-1 flex-col items-center justify-end gap-1 text-[#90abcb]" href="#">
+                        <div class="text-[#90abcb] flex h-8 items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                                <path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm56,112H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48a8,8,0,0,1,0,16Z"></path>
+                            </svg>
+                        </div>
+                    </a>
+                    <a id="nav-timer-settings" class="just flex flex-1 flex-col items-center justify-end gap-1 text-[#90abcb]" href="#">
+                        <div class="text-[#90abcb] flex h-8 items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                                <path
+                                    d="M128,40a96,96,0,1,0,96,96A96.11,96.11,0,0,0,128,40Zm0,176a80,80,0,1,1,80-80A80.09,80.09,0,0,1,128,216ZM173.66,90.34a8,8,0,0,1,0,11.32l-40,40a8,8,0,0,1-11.32-11.32l40-40A8,8,0,0,1,173.66,90.34ZM96,16a8,8,0,0,1,8-8h48a8,8,0,0,1,0,16H104A8,8,0,0,1,96,16Z"
+                                ></path>
+                            </svg>
+                        </div>
+                    </a>
+                    <a id="nav-gear-settings" class="just flex flex-1 flex-col items-center justify-end gap-1 text-white" href="#">
+                        <div class="text-white flex h-8 items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor" viewBox="0 0 256 256">
+                                <path
+                                    d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm88-29.84q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.21,107.21,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.71,107.71,0,0,0-26.25-10.87,8,8,0,0,0-7.06,1.49L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.21,107.21,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06Zm-16.1-6.5a73.93,73.93,0,0,1,0,8.68,8,8,0,0,0,1.74,5.48l14.19,17.73a91.57,91.57,0,0,1-6.23,15L187,173.11a8,8,0,0,0-5.1,2.64,74.11,74.11,0,0,1-6.14,6.14,8,8,0,0,0-2.64,5.1l-2.51,22.58a91.32,91.32,0,0,1-15,6.23l-17.74-14.19a8,8,0,0,0-5-1.75h-.48a73.93,73.93,0,0,1-8.68,0,8,8,0,0,0-5.48,1.74L100.45,215.8a91.57,91.57,0,0,1-15-6.23L82.89,187a8,8,0,0,0-2.64-5.1,74.11,74.11,0,0,1-6.14-6.14,8,8,0,0,0-5.1-2.64L46.43,170.6a91.32,91.32,0,0,1-6.23-15l14.19-17.74a8,8,0,0,0,1.74-5.48,73.93,73.93,0,0,1,0-8.68,8,8,0,0,0-1.74-5.48L40.2,100.45a91.57,91.57,0,0,1,6.23-15L69,82.89a8,8,0,0,0,5.1-2.64,74.11,74.11,0,0,1,6.14-6.14A8,8,0,0,0,82.89,69L85.4,46.43a91.32,91.32,0,0,1,15-6.23l17.74,14.19a8,8,0,0,0,5.48,1.74,73.93,73.93,0,0,1,8.68,0,8,8,0,0,0,5.48-1.74L155.55,40.2a91.57,91.57,0,0,1,15,6.23L173.11,69a8,8,0,0,0,2.64,5.1,74.11,74.11,0,0,1,6.14,6.14,8,8,0,0,0,5.1,2.64l22.58,2.51a91.32,91.32,0,0,1,6.23,15l-14.19,17.74A8,8,0,0,0,199.87,123.66Z"
+                                ></path>
+                            </svg>
+                        </div>
+                    </a>
+                </div>
+                <div class="h-5 bg-[#182534]"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Importaciones del SDK de Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Variables globales de Firebase
+        window.firebaseApp = null;
+        window.db = null;
+        window.auth = null;
+        window.currentUserId = null;
+        // Recuperar el ID de la aplicación del entorno, predeterminado si no está definido
+        window.appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // Estado global para gestionar la página actual y los temporizadores
+        let currentPage = 'main-timer-view';
+        let timers = []; // Array para almacenar objetos de temporizador de Firestore
+        let timerIntervals = {}; // Almacena los ID de los intervalos para cada temporizador en ejecución
+        let selectedTimerId = null; // Rastrea qué temporizador se completó o se está viendo
+        let activeMainTimerId = null; // Almacena el ID del temporizador que se muestra en la pantalla principal
+
+        // Variables para la gestión de alarmas de sonido y vibración
+        let audioContext;
+        let oscillator;
+        let gainNode;
+        let alarmInterval = null; // Para el bucle de sonido repetitivo
+        let isVibrating = false; // Para controlar el estado de vibración
+
+        // --- Lógica del Selector de Duración ---
+        /**
+         * Genera y rellena un selector de duración (horas, minutos o segundos).
+         * @param {HTMLElement} pickerElement El elemento DOM para el selector.
+         * @param {number} max El valor máximo para el selector.
+         * @param {number} initialValue El valor inicial seleccionado.
+         */
+        function generatePickerNumbers(pickerElement, max, initialValue = 0) {
+            if (!pickerElement) {
+                console.error("generatePickerNumbers: pickerElement es nulo.");
+                return;
+            }
+            pickerElement.innerHTML = ''; // Limpiar números existentes
+            for (let i = 0; i <= max; i++) {
+                const p = document.createElement('p');
+                p.textContent = String(i).padStart(2, '0'); // Formatear a 2 dígitos (ej. 05)
+                p.classList.add('text-sm', 'font-bold', 'leading-normal', 'tracking-[0.015em]', 'flex', 'h-11', 'items-center', 'justify-center', 'truncate', 'px-4', 'text-center');
+                // Establecer el estado activo inicial
+                if (i === initialValue) {
+                    p.classList.add('active-number');
+                } else {
+                    p.classList.add('text-[#43668e]');
+                }
+                pickerElement.appendChild(p);
+            }
+
+            // Desplazarse al valor inicial
+            const offset = initialValue * 44; // 44px es la altura de cada elemento <p>
+            pickerElement.scrollTop = offset;
+
+            // Añadir un oyente de eventos de desplazamiento para actualizar la clase activa
+            pickerElement.addEventListener('scroll', () => {
+                const children = Array.from(pickerElement.children);
+                let closestIndex = 0;
+                let minDiff = Infinity;
+
+                children.forEach((child, index) => {
+                    const diff = Math.abs(pickerElement.scrollTop - (index * 44));
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closestIndex = index;
+                    }
+                });
+
+                children.forEach((child, index) => {
+                    if (index === closestIndex) {
+                        child.classList.remove('text-[#43668e]');
+                        child.classList.add('active-number');
+                    } else {
+                        child.classList.remove('active-number');
+                        child.classList.add('text-[#43668e]');
+                    }
+                });
+            });
+        }
+
+        /**
+         * Obtiene el valor actualmente seleccionado de un selector de duración.
+         * @param {HTMLElement} pickerElement El elemento DOM para el selector.
+         * @returns {number} El valor seleccionado.
+         */
+        function getPickerValue(pickerElement) {
+            if (!pickerElement) {
+                console.error("getPickerValue: pickerElement es nulo.");
+                return 0; // Devolver 0 o manejar el error apropiadamente
+            }
+            const children = Array.from(pickerElement.children);
+            let closestIndex = 0;
+            let minDiff = Infinity;
+
+            children.forEach((child, index) => {
+                const diff = Math.abs(pickerElement.scrollTop - (index * 44));
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestIndex = index;
+                }
+            });
+            return parseInt(children[closestIndex].textContent);
+        }
+
+        // --- Funciones de Gestión de Temporizadores ---
+        /**
+         * Formatea un número total de segundos en una cadena HH:MM:SS.
+         * @param {number} seconds El total de segundos.
+         * @returns {string} Cadena de tiempo formateada.
+         */
+        function formatTime(seconds) {
+            const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
+            const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+            const s = String(seconds % 60).padStart(2, '0');
+            return `${h}:${m}:${s}`;
+        }
+
+        /**
+         * Muestra un cuadro de mensaje temporal al usuario.
+         * @param {string} message El mensaje a mostrar.
+         * @param {'info'|'success'|'error'} type El tipo de mensaje (determina el color).
+         */
+        function showMessageBox(message, type = 'info') {
+            const messageBox = document.createElement('div');
+            messageBox.classList.add('message-box', 'fixed', 'bottom-4', 'left-1/2', '-translate-x-1/2', 'p-3', 'rounded-lg', 'shadow-lg', 'z-50');
+            if (type === 'error') {
+                messageBox.classList.add('bg-red-500', 'text-white');
+            } else if (type === 'success') {
+                messageBox.classList.add('bg-green-500', 'text-white');
+            } else {
+                messageBox.classList.add('bg-blue-500', 'text-white');
+            }
+            messageBox.textContent = message;
+            document.body.appendChild(messageBox);
+            setTimeout(() => {
+                messageBox.remove();
+            }, 3000);
+        }
+
+        /**
+         * Guarda o actualiza un objeto de temporizador en Firestore.
+         * @param {object} timer El objeto de temporizador a guardar.
+         */
+        async function saveTimerToFirestore(timer) {
+            if (!window.db || !window.currentUserId) {
+                showMessageBox('Error: Firebase no inicializado o usuario no autenticado.', 'error');
+                return;
+            }
+            try {
+                const timersCollectionRef = collection(window.db, `artifacts/${window.appId}/users/${window.currentUserId}/timers`);
+                if (timer.docId) { // Si el temporizador ya existe (tiene un docId de Firestore)
+                    const timerDocRef = doc(window.db, `artifacts/${window.appId}/users/${window.currentUserId}/timers`, timer.docId);
+                    await updateDoc(timerDocRef, {
+                        name: timer.name,
+                        duration: timer.duration,
+                        remainingTime: timer.remainingTime,
+                        status: timer.status,
+                        startTime: timer.startTime // Asegurarse de que startTime se guarde
+                    });
+                } else { // Nuevo temporizador
+                    const docRef = await addDoc(timersCollectionRef, {
+                        id: timer.id, // Mantener el ID generado por JS para uso interno
+                        name: timer.name,
+                        duration: timer.duration,
+                        remainingTime: timer.remainingTime,
+                        status: timer.status,
+                        startTime: timer.startTime || null, // Guardar startTime si está disponible
+                        userId: window.currentUserId
+                    });
+                    timer.docId = docRef.id; // Almacenar el ID del documento de Firestore
+                }
+            } catch (e) {
+                console.error("Error al guardar el temporizador en Firestore: ", e);
+                showMessageBox('Error al guardar el temporizador.', 'error');
+            }
+        }
+
+        /**
+         * Elimina un temporizador de Firestore.
+         * @param {string} docId El ID del documento de Firestore del temporizador a eliminar.
+         */
+        async function deleteTimerFromFirestore(docId) {
+            if (!window.db || !window.currentUserId) {
+                showMessageBox('Error: Firebase no inicializado o usuario no autenticado.', 'error');
+                return;
+            }
+            try {
+                const timerDocRef = doc(window.db, `artifacts/${window.appId}/users/${window.currentUserId}/timers`, docId);
+                await deleteDoc(timerDocRef);
+                showMessageBox('Temporizador eliminado.', 'success');
+            } catch (e) {
+                console.error("Error al eliminar el temporizador de Firestore: ", e);
+                showMessageBox('Error al eliminar el temporizador.', 'error');
+            }
+        }
+
+        /**
+         * Carga los temporizadores de Firestore y configura un oyente en tiempo real.
+         */
+        function loadTimersFromFirestore() {
+            if (!window.db || !window.currentUserId) {
+                console.warn("Firestore no está listo para cargar temporizadores.");
+                return;
+            }
+
+            const timersCollectionRef = collection(window.db, `artifacts/${window.appId}/users/${window.currentUserId}/timers`);
+            // Usar onSnapshot para actualizaciones en tiempo real
+            onSnapshot(timersCollectionRef, (snapshot) => {
+                const newTimers = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    newTimers.push({
+                        docId: doc.id, // Almacenar el ID del documento de Firestore
+                        id: data.id,
+                        name: data.name,
+                        duration: data.duration,
+                        remainingTime: data.remainingTime,
+                        status: data.status,
+                        startTime: data.startTime // Volver a añadir startTime si se reanuda
+                    });
+                });
+
+                // Limpiar todos los intervalos existentes antes de volver a renderizar y (potencialmente) reiniciar
+                Object.values(timerIntervals).forEach(intervalId => clearInterval(intervalId));
+                timerIntervals = {}; // Restablecer el objeto de intervalos
+
+                timers = newTimers;
+                // Reiniciar intervalos para los temporizadores en ejecución después de la carga
+                timers.forEach(timer => {
+                    if (timer.status === 'running') {
+                        startTimer(timer.id, false); // No guardar en Firestore de nuevo al cargar
+                    }
+                });
+                renderTimersList();
+                updateMainTimerDisplay(); // Actualizar la visualización del temporizador principal después de la carga
+            }, (error) => {
+                console.error("Error al escuchar los temporizadores de Firestore: ", error);
+                showMessageBox('Error al cargar los temporizadores.', 'error');
+            });
+        }
+
+        /**
+         * Inicia un temporizador y actualiza su estado.
+         * @param {string} timerId El ID del temporizador a iniciar.
+         * @param {boolean} saveToDb Si se debe guardar el estado del temporizador en Firestore inmediatamente.
+         */
+        async function startTimer(timerId, saveToDb = true) {
+            const timer = timers.find(t => t.id === timerId);
+            if (!timer || timer.status === 'running') return;
+
+            // Si el temporizador ya está completado, reiniciarlo antes de comenzar
+            if (timer.status === 'completed') {
+                timer.remainingTime = timer.duration;
+            }
+
+            timer.status = 'running';
+            // Ajustar la hora de inicio si se reanuda desde un estado pausado
+            timer.startTime = Date.now() - (timer.duration - timer.remainingTime) * 1000;
+            
+            if (saveToDb) {
+                await saveTimerToFirestore(timer);
+            }
+
+            // Limpiar cualquier intervalo existente para este temporizador antes de establecer uno nuevo
+            if (timerIntervals[timer.id]) {
+                clearInterval(timerIntervals[timer.id]);
+            }
+
+            timerIntervals[timer.id] = setInterval(async () => {
+                const elapsed = Math.floor((Date.now() - timer.startTime) / 1000);
+                timer.remainingTime = timer.duration - elapsed;
+
+                if (timer.remainingTime <= 0) {
+                    clearInterval(timerIntervals[timer.id]);
+                    timer.status = 'completed';
+                    timer.remainingTime = 0;
+                    selectedTimerId = timer.id; // Establecer el temporizador completado como seleccionado
+                    await saveTimerToFirestore(timer); // Actualizar el estado en Firestore
+                    showPage('timer-complete-view');
+                    const timerCompleteMessageEl = document.getElementById('timer-complete-message');
+                    if (timerCompleteMessageEl) timerCompleteMessageEl.textContent = `¡Tu temporizador para "${timer.name}" ha terminado!`;
+                    renderTimersList(); // Actualizar la lista para mostrar el estado completado
+                    startAlarm(); // Iniciar alarma repetitiva y vibración
+                    updateMainTimerDisplay(); // Actualizar la visualización del temporizador principal
+                } else {
+                    // Actualizar la visualización del temporizador activo en la pantalla principal
+                    if (activeMainTimerId === timer.id) {
+                        const activeTimerNameEl = document.getElementById('active-timer-name');
+                        const activeTimerTimeEl = document.getElementById('active-timer-time');
+                        if (activeTimerNameEl) activeTimerNameEl.textContent = timer.name;
+                        if (activeTimerTimeEl) activeTimerTimeEl.textContent = formatTime(timer.remainingTime);
+                    }
+                    renderTimersList(); // Actualizar la visualización en la vista de lista
+                }
+            }, 1000);
+            activeMainTimerId = timer.id; // Establecer este temporizador como el que se mostrará en la pantalla principal
+            updateMainTimerDisplay(); // Actualización inicial de la pantalla principal
+            renderTimersList(); // Actualización inicial de la lista
+        }
+
+        /**
+         * Pausa un temporizador en ejecución.
+         * @param {string} timerId El ID del temporizador a pausar.
+         */
+        async function pauseTimer(timerId) {
+            const timer = timers.find(t => t.id === timerId);
+            if (timer && timer.status === 'running') {
+                clearInterval(timerIntervals[timer.id]);
+                delete timerIntervals[timer.id]; // Eliminar intervalo de la lista
+                timer.status = 'paused';
+                await saveTimerToFirestore(timer); // Actualizar el estado en Firestore
+                renderTimersList();
+                updateMainTimerDisplay(); // Actualizar la visualización del temporizador principal
+            }
+        }
+
+        /**
+         * Restablece un temporizador a su duración original.
+         * @param {string} timerId El ID del temporizador a restablecer.
+         */
+        async function resetTimer(timerId) {
+            const timer = timers.find(t => t.id === timerId);
+            if (timer) {
+                clearInterval(timerIntervals[timer.id]);
+                delete timerIntervals[timer.id]; // Eliminar intervalo de la lista
+                timer.remainingTime = timer.duration;
+                timer.status = 'idle';
+                await saveTimerToFirestore(timer); // Actualizar el estado en Firestore
+                renderTimersList();
+                updateMainTimerDisplay(); // Actualizar la visualización del temporizador principal
+                if (activeMainTimerId === timer.id) {
+                    activeMainTimerId = null; // Borrar si el temporizador restablecido era el principal
+                    updateMainTimerDisplay(); // Forzar actualización para ocultar el temporizador principal
+                }
+            }
+        }
+
+        /**
+         * Elimina un temporizador de la matriz local y de Firestore.
+         * @param {string} timerId El ID del temporizador a eliminar.
+         */
+        async function deleteTimer(timerId) {
+            const timerIndex = timers.findIndex(t => t.id === timerId);
+            if (timerIndex > -1) {
+                const timerToDelete = timers[timerIndex];
+                clearInterval(timerIntervals[timerToDelete.id]); // Limpiar intervalo si existe
+                delete timerIntervals[timerToDelete.id];
+
+                if (timerToDelete.docId) {
+                    await deleteTimerFromFirestore(timerToDelete.docId);
+                } else {
+                    // Si no hay docId (ej. Firebase no inicializado), simplemente eliminar de la matriz local
+                    timers.splice(timerIndex, 1);
+                    renderTimersList();
+                    updateMainTimerDisplay();
+                }
+
+                if (activeMainTimerId === timerId) {
+                    activeMainTimerId = null; // Borrar si el temporizador eliminado era el principal
+                    updateMainTimerDisplay(); // Forzar actualización para ocultar el temporizador principal
+                }
+            }
+        }
+
+        /**
+         * Muestra una página específica y oculta todas las demás.
+         * @param {string} pageId El ID de la página a mostrar.
+         */
+        function showPage(pageId) {
+            // Ocultar todas las páginas
+            document.querySelectorAll('.page').forEach(page => {
+                if (page && page.classList) {
+                    page.classList.add('hidden');
+                } else {
+                    console.warn("showPage: Se encontró un elemento 'page' nulo o sin classList en NodeList.");
+                }
+            });
+
+            // Mostrar la página de destino
+            const targetPage = document.getElementById(pageId);
+            if (targetPage && targetPage.classList) {
+                targetPage.classList.remove('hidden');
+            } else {
+                console.error(`showPage: Elemento con ID "${pageId}" no encontrado o sin classList.`);
+                showMessageBox(`Error interno: no se pudo cargar la vista "${pageId}".`, 'error');
+            }
+            
+            currentPage = pageId; // Actualizar el estado de la página actual
+            updateMainTimerDisplay(); // Actualizar la visualización del temporizador principal cuando cambia la página
+
+            // Detener la alarma si se navega fuera de la vista de temporizador completado
+            if (pageId !== 'timer-complete-view') {
+                stopAlarm();
+            }
+        }
+
+        /**
+         * Actualiza la visualización en la vista principal del temporizador según los temporizadores activos.
+         */
+        function updateMainTimerDisplay() {
+            const mainTitle = document.getElementById('main-timer-title');
+            const mainSubtitle = document.getElementById('main-timer-subtitle');
+            const activeTimerDisplay = document.getElementById('active-timer-display');
+            const activeTimerName = document.getElementById('active-timer-name');
+            const activeTimerTime = document.getElementById('active-timer-time');
+
+            // Comprobaciones defensivas para los elementos
+            if (!mainTitle || !mainSubtitle || !activeTimerDisplay || !activeTimerName || !activeTimerTime) {
+                console.warn("updateMainTimerDisplay: Faltan elementos DOM necesarios.");
+                return;
+            }
+
+            const runningTimers = timers.filter(t => t.status === 'running');
+
+            if (runningTimers.length > 0) {
+                const firstRunningTimer = runningTimers[0]; // Mostrar el primer temporizador en ejecución
+                activeMainTimerId = firstRunningTimer.id;
+                mainTitle.classList.add('hidden');
+                mainSubtitle.classList.add('hidden');
+                activeTimerDisplay.classList.remove('hidden');
+                activeTimerName.textContent = firstRunningTimer.name;
+                activeTimerTime.textContent = formatTime(firstRunningTimer.remainingTime);
+            } else {
+                activeMainTimerId = null;
+                mainTitle.classList.remove('hidden');
+                mainSubtitle.classList.remove('hidden');
+                activeTimerDisplay.classList.add('hidden');
+            }
+        }
+
+        /**
+         * Renderiza la lista de temporizadores en la vista 'Mis Temporizadores'.
+         */
+        function renderTimersList() {
+            const container = document.getElementById('timers-container');
+            if (!container) {
+                console.error("renderTimersList: No se encontró el elemento 'timers-container'.");
+                return;
+            }
+            container.innerHTML = ''; // Limpiar la lista existente
+
+            if (timers.length === 0) {
+                container.innerHTML = `
+                    <p class="text-[#90abcb] text-center p-4">¡Aún no hay temporizadores. Haz clic en 'Nuevo Temporizador' para añadir uno!</p>
+                `;
+                return;
+            }
+
+            // Ordenar temporizadores: primero los que están en ejecución, luego los pausados, luego los completados/inactivos
+            const sortedTimers = [...timers].sort((a, b) => {
+                if (a.status === 'running' && b.status !== 'running') return -1;
+                if (a.status !== 'running' && b.status === 'running') return 1;
+                if (a.status === 'paused' && b.status !== 'paused') return -1;
+                if (a.status !== 'paused' && b.status === 'paused') return 1;
+                return 0;
+            });
+
+            sortedTimers.forEach(timer => {
+                const timerElement = document.createElement('div');
+                timerElement.classList.add('flex', 'flex-col', 'gap-2', 'bg-[#182534]', 'px-4', 'py-3', 'rounded-xl', 'mb-3', 'shadow-lg'); // Estilo añadido
+                
+                let statusText = '';
+                let statusColor = 'text-[#90abcb]';
+                if (timer.status === 'running') {
+                    statusText = ' (Activo)';
+                    statusColor = 'text-green-400';
+                } else if (timer.status === 'paused') {
+                    statusText = ' (Pausado)';
+                    statusColor = 'text-yellow-400';
+                } else if (timer.status === 'completed') {
+                    statusText = ' (Completado)';
+                    statusColor = 'text-red-400';
+                } else {
+                    statusText = ' (Inactivo)';
+                }
+
+                timerElement.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <p class="text-white text-base font-medium leading-normal line-clamp-1">${timer.name} <span class="${statusColor} text-sm">${statusText}</span></p>
+                        <p class="text-[#90abcb] text-sm font-normal leading-normal">${formatTime(timer.remainingTime)}</p>
+                    </div>
+                    <div class="flex gap-2 justify-end mt-2">
+                        ${timer.status === 'running' ? `
+                            <button class="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#223449] text-white text-sm font-bold leading-normal tracking-[0.015em] transition-all duration-200 hover:bg-gray-700" data-action="pause" data-id="${timer.id}">
+                                <span class="truncate">Pausar</span>
+                            </button>
+                        ` : timer.status === 'paused' || timer.status === 'idle' || timer.status === 'completed' ? `
+                            <button class="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#0c77f2] text-white text-sm font-bold leading-normal tracking-[0.015em] transition-all duration-200 hover:bg-blue-700" data-action="start" data-id="${timer.id}">
+                                <span class="truncate">Iniciar</span>
+                            </button>
+                        ` : ''}
+                        <button class="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#223449] text-white text-sm font-bold leading-normal tracking-[0.015em] transition-all duration-200 hover:bg-gray-700" data-action="reset" data-id="${timer.id}">
+                            <span class="truncate">Reiniciar</span>
+                        </button>
+                        <button class="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-red-600 text-white text-sm font-bold leading-normal tracking-[0.015em] transition-all duration-200 hover:bg-red-700" data-action="delete" data-id="${timer.id}">
+                            <span class="truncate">Eliminar</span>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(timerElement);
+            });
+
+            // Añadir oyentes de eventos a los botones creados dinámicamente
+            container.querySelectorAll('button[data-action="start"]').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    startTimer(event.currentTarget.dataset.id);
+                });
+            });
+            container.querySelectorAll('button[data-action="pause"]').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    pauseTimer(event.currentTarget.dataset.id);
+                });
+            });
+            container.querySelectorAll('button[data-action="reset"]').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    resetTimer(event.currentTarget.dataset.id);
+                });
+            });
+            container.querySelectorAll('button[data-action="delete"]').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    deleteTimer(event.currentTarget.dataset.id);
+                });
+            });
+        }
+
+        // --- Gestión de Sonido y Vibración ---
+        /**
+         * Inicializa el AudioContext solo después de un gesto del usuario.
+         */
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                gainNode = audioContext.createGain();
+                gainNode.connect(audioContext.destination);
+                gainNode.gain.value = 0; // Iniciar silenciado
+            }
+        }
+
+        /**
+         * Reproduce un único sonido de alarma según la configuración seleccionada.
+         */
+        function playSoundOnce() {
+            initAudio(); // Asegurarse de que el contexto de audio esté inicializado
+
+            const defaultSoundToggle = document.getElementById('default-sound-toggle');
+            const dingSoundToggle = document.getElementById('ding-sound-toggle');
+
+            if (oscillator) {
+                oscillator.stop();
+                oscillator.disconnect();
+                oscillator = null;
+            }
+
+            oscillator = audioContext.createOscillator();
+            oscillator.connect(gainNode);
+            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.1); // Fundido de entrada
+
+            if (defaultSoundToggle && defaultSoundToggle.checked) {
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // Nota A4
+            } else if (dingSoundToggle && dingSoundToggle.checked) {
+                oscillator.type = 'triangle';
+                oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
+                oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.1);
+            } else {
+                // Si no se selecciona ningún sonido, no reproducir
+                return;
+            }
+
+            oscillator.start(audioContext.currentTime);
+            // El sonido no se detiene aquí, será detenido por stopAlarm()
+        }
+
+        /**
+         * Inicia el sonido continuo de la alarma y la vibración.
+         */
+        function startAlarm() {
+            stopAlarm(); // Asegurarse de que no haya alarmas anteriores en ejecución
+
+            // Iniciar vibración si es compatible
+            if (navigator.vibrate) {
+                // Patrón de vibración: vibrar 200ms, pausar 100ms, vibrar 200ms, pausar 100ms, etc.
+                // Una matriz vacía detiene la vibración
+                navigator.vibrate([200, 100, 200, 100, 200]); // Patrón de vibración simplificado
+                isVibrating = true;
+            }
+
+            // Iniciar alarma de sonido
+            playSoundOnce(); // Reproducir el sonido una vez
+            alarmInterval = setInterval(() => {
+                playSoundOnce(); // Repetir sonido
+                if (navigator.vibrate && isVibrating) {
+                    navigator.vibrate([200, 100, 200, 100, 200]); // Repetir vibración
+                }
+            }, 3000); // Repetir cada 3 segundos
+        }
+
+        /**
+         * Detiene el sonido de la alarma y la vibración.
+         */
+        function stopAlarm() {
+            if (alarmInterval) {
+                clearInterval(alarmInterval);
+                alarmInterval = null;
+            }
+            if (oscillator) {
+                oscillator.stop();
+                oscillator.disconnect();
+                oscillator = null;
+            }
+            if (navigator.vibrate && isVibrating) {
+                navigator.vibrate(0); // Detener cualquier vibración en curso
+                isVibrating = false;
+            }
+        }
+
+        // --- Oyentes de Eventos ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Inicializar Firebase
+            try {
+                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                window.firebaseApp = initializeApp(firebaseConfig);
+                window.db = getFirestore(window.firebaseApp);
+                window.auth = getAuth(window.firebaseApp);
+
+                onAuthStateChanged(window.auth, async (user) => {
+                    if (user) {
+                        window.currentUserId = user.uid;
+                        document.getElementById('user-id-display').textContent = `ID de Usuario: ${window.currentUserId}`;
+                        loadTimersFromFirestore(); // Cargar temporizadores una vez autenticado
+                    } else {
+                        // Iniciar sesión de forma anónima si no hay ningún usuario conectado
+                        try {
+                            if (typeof __initial_auth_token !== 'undefined') {
+                                await signInWithCustomToken(window.auth, __initial_auth_token);
+                            } else {
+                                await signInAnonymously(window.auth);
+                            }
+                        } catch (error) {
+                            console.error("Error al iniciar sesión de forma anónima:", error);
+                            showMessageBox('Error al iniciar sesión.', 'error');
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error("No se pudo inicializar Firebase:", error);
+                showMessageBox('No se pudo inicializar Firebase. Consulta la consola para más detalles.', 'error');
+            }
+
+            // Rellenar selectores de duración
+            generatePickerNumbers(document.getElementById('hours-picker'), 23);
+            generatePickerNumbers(document.getElementById('minutes-picker'), 59);
+            generatePickerNumbers(document.getElementById('seconds-picker'), 59);
+
+            // Botones de navegación
+            document.getElementById('start-button-main').addEventListener('click', () => {
+                showPage('timers-list-view');
+                renderTimersList(); // Asegurarse de que la lista se actualice al navegar
+            });
+
+            document.getElementById('new-timer-list-button').addEventListener('click', () => {
+                showPage('new-timer-view');
+                // Restablecer el formulario del nuevo temporizador
+                document.getElementById('timer-name-input').value = '';
+                generatePickerNumbers(document.getElementById('hours-picker'), 23, 0);
+                generatePickerNumbers(document.getElementById('minutes-picker'), 59, 0);
+                generatePickerNumbers(document.getElementById('seconds-picker'), 59, 0);
+            });
+
+            document.getElementById('new-timer-close-button').addEventListener('click', () => {
+                showPage('main-timer-view');
+            });
+
+            document.getElementById('new-timer-cancel-button').addEventListener('click', () => {
+                showPage('timers-list-view');
+            });
+
+            document.getElementById('timers-list-back-button').addEventListener('click', () => {
+                showPage('main-timer-view');
+            });
+
+            document.getElementById('settings-button-main').addEventListener('click', () => {
+                showPage('settings-view');
+            });
+
+            document.getElementById('settings-close-button').addEventListener('click', () => {
+                showPage('main-timer-view');
+            });
+
+            document.getElementById('nav-clock-settings').addEventListener('click', (e) => {
+                e.preventDefault();
+                showPage('main-timer-view');
+            });
+
+            document.getElementById('nav-timer-settings').addEventListener('click', (e) => {
+                e.preventDefault();
+                showPage('timers-list-view');
+            });
+
+            document.getElementById('nav-gear-settings').addEventListener('click', (e) => {
+                e.preventDefault();
+                showPage('settings-view');
+            });
+
+            document.getElementById('timer-complete-stop-button').addEventListener('click', () => {
+                stopAlarm();
+                showPage('main-timer-view');
+            });
+
+            document.getElementById('timer-complete-close-button').addEventListener('click', () => {
+                stopAlarm();
+                showPage('main-timer-view');
+            });
+
+            document.getElementById('timer-complete-view-details-button').addEventListener('click', () => {
+                stopAlarm();
+                showPage('timers-list-view');
+            });
+
+            document.getElementById('new-timer-save-button').addEventListener('click', async () => {
+                const hours = getPickerValue(document.getElementById('hours-picker'));
+                const minutes = getPickerValue(document.getElementById('minutes-picker'));
+                const seconds = getPickerValue(document.getElementById('seconds-picker'));
+                const name = document.getElementById('timer-name-input').value.trim();
+
+                const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+
+                if (totalSeconds === 0) {
+                    showMessageBox('Por favor, establece una duración para el temporizador.', 'error');
+                    return;
+                }
+                if (!name) {
+                    showMessageBox('Por favor, introduce un nombre para el temporizador.', 'error');
+                    return;
+                }
+
+                const newTimer = {
+                    id: crypto.randomUUID(), // ID único para el temporizador
+                    name: name,
+                    duration: totalSeconds,
+                    remainingTime: totalSeconds,
+                    status: 'idle', // 'idle', 'running', 'paused', 'completed'
+                    startTime: null // Para rastrear cuándo comenzó para un cálculo preciso del tiempo restante
+                };
+
+                timers.push(newTimer);
+                await saveTimerToFirestore(newTimer); // Guardar nuevo temporizador en Firestore
+                showMessageBox('¡Temporizador guardado con éxito!', 'success');
+                showPage('timers-list-view'); // Volver a la lista de temporizadores
+            });
+
+            // Manejar los interruptores de sonido
+            const defaultSoundToggle = document.getElementById('default-sound-toggle');
+            const dingSoundToggle = document.getElementById('ding-sound-toggle');
+
+            defaultSoundToggle.addEventListener('change', () => {
+                if (defaultSoundToggle.checked) {
+                    dingSoundToggle.checked = false;
+                } else if (!dingSoundToggle.checked) {
+                    // Si el predeterminado está desmarcado y ding también está desmarcado, volver a marcar el predeterminado
+                    defaultSoundToggle.checked = true;
+                }
+            });
+
+            dingSoundToggle.addEventListener('change', () => {
+                if (dingSoundToggle.checked) {
+                    defaultSoundToggle.checked = false;
+                } else if (!defaultSoundToggle.checked) {
+                    // Si ding está desmarcado y el predeterminado también está desmarcado, volver a marcar ding
+                    dingSoundToggle.checked = true;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
